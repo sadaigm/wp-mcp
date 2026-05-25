@@ -5,7 +5,7 @@ Provides tools for interacting with WordPress REST API to manage posts, pages, a
 
 import os
 import logging
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Union
 import base64
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -42,10 +42,10 @@ def get_api_url(endpoint: str) -> str:
     base_url = WP_URL.rstrip("/")
     return f"{base_url}/wp-json/wp/v2/{endpoint}"
 
-async def make_request(method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Dict[str, Any]:
+async def make_request(method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None, require_auth: bool = False) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     """Make HTTP request to WordPress API."""
     url = get_api_url(endpoint)
-    headers = get_auth_headers() if method in ["POST", "PUT", "DELETE"] else {}
+    headers = get_auth_headers() if method in ["POST", "PUT", "DELETE"] or require_auth else {}
 
     # Log request details
     logger.info(f"REST Request: {method} {url}")
@@ -119,7 +119,7 @@ async def list_posts(
     author: Optional[int] = None,
     order: str = "desc",
     orderby: str = "date"
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     List WordPress posts with optional filtering.
 
@@ -155,7 +155,9 @@ async def list_posts(
     if author:
         params["author"] = author
 
-    return await make_request("GET", "posts", params=params)
+    # Require auth for non-public statuses
+    require_auth = status in ["draft", "pending", "private", "future"]
+    return await make_request("GET", "posts", params=params, require_auth=require_auth)
 
 @mcp.tool()
 async def get_post(post_id: int) -> Dict[str, Any]:
@@ -282,7 +284,7 @@ async def delete_post(post_id: int, force: bool = False) -> Dict[str, Any]:
     return await make_request("DELETE", f"posts/{post_id}", params=params)
 
 @mcp.tool()
-async def list_draft_posts(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+async def list_draft_posts(per_page: int = 100, page: int = 1) -> List[Dict[str, Any]]:
     """
     List all draft posts in WordPress.
 
@@ -293,7 +295,7 @@ async def list_draft_posts(per_page: int = 100, page: int = 1) -> Dict[str, Any]
     Returns:
         Dictionary with draft posts list or error
     """
-    return await make_request("GET", "posts", params={"status": "draft", "per_page": min(per_page, 100), "page": page})
+    return await make_request("GET", "posts", params={"status": "draft", "per_page": min(per_page, 100), "page": page}, require_auth=True)
 
 @mcp.tool()
 async def publish_post(post_id: int) -> Dict[str, Any]:
@@ -356,7 +358,7 @@ async def publish_all_drafts() -> Dict[str, Any]:
 
     # Fetch all draft posts (handle pagination)
     while True:
-        drafts = await make_request("GET", "posts", params={"status": "draft", "per_page": 100, "page": page})
+        drafts = await make_request("GET", "posts", params={"status": "draft", "per_page": 100, "page": page}, require_auth=True)
 
         if not isinstance(drafts, list):
             return {"error": True, "message": "Failed to fetch draft posts", "details": drafts}
@@ -387,7 +389,7 @@ async def list_pages(
     parent_exclude: Optional[List[int]] = None,
     order: str = "asc",
     orderby: str = "menu_order"
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     List WordPress pages with optional filtering.
 
@@ -420,7 +422,9 @@ async def list_pages(
     if parent_exclude:
         params["parent_exclude"] = ",".join(map(str, parent_exclude))
 
-    return await make_request("GET", "pages", params=params)
+    # Require auth for non-public statuses
+    require_auth = status in ["draft", "pending", "private"]
+    return await make_request("GET", "pages", params=params, require_auth=require_auth)
 
 @mcp.tool()
 async def get_page(page_id: int) -> Dict[str, Any]:
@@ -549,7 +553,7 @@ async def delete_page(page_id: int, force: bool = False) -> Dict[str, Any]:
     return await make_request("DELETE", f"pages/{page_id}", params=params)
 
 @mcp.tool()
-async def list_draft_pages(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+async def list_draft_pages(per_page: int = 100, page: int = 1) -> List[Dict[str, Any]]:
     """
     List all draft pages in WordPress.
 
@@ -560,7 +564,7 @@ async def list_draft_pages(per_page: int = 100, page: int = 1) -> Dict[str, Any]
     Returns:
         Dictionary with draft pages list or error
     """
-    return await make_request("GET", "pages", params={"status": "draft", "per_page": min(per_page, 100), "page": page})
+    return await make_request("GET", "pages", params={"status": "draft", "per_page": min(per_page, 100), "page": page}, require_auth=True)
 
 @mcp.tool()
 async def publish_page(page_id: int) -> Dict[str, Any]:
@@ -623,7 +627,7 @@ async def publish_all_draft_pages() -> Dict[str, Any]:
 
     # Fetch all draft pages (handle pagination)
     while True:
-        drafts = await make_request("GET", "pages", params={"status": "draft", "per_page": 100, "page": page})
+        drafts = await make_request("GET", "pages", params={"status": "draft", "per_page": 100, "page": page}, require_auth=True)
 
         if not isinstance(drafts, list):
             return {"error": True, "message": "Failed to fetch draft pages", "details": drafts}
@@ -653,7 +657,7 @@ async def list_categories(
     parent: Optional[int] = None,
     order: str = "asc",
     orderby: str = "name"
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     List WordPress categories with optional filtering.
 
@@ -784,7 +788,7 @@ async def list_tags(
     hide_empty: bool = False,
     order: str = "asc",
     orderby: str = "name"
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     List WordPress tags with optional filtering.
 
@@ -907,7 +911,7 @@ async def list_comments(
     parent: Optional[int] = None,
     order: str = "desc",
     orderby: str = "date_gmt"
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     List WordPress comments with optional filtering.
 
@@ -940,7 +944,9 @@ async def list_comments(
     if parent is not None:
         params["parent"] = parent
 
-    return await make_request("GET", "comments", params=params)
+    # Require auth for non-approved comments
+    require_auth = status in ["hold", "spam", "trash"]
+    return await make_request("GET", "comments", params=params, require_auth=require_auth)
 
 @mcp.tool()
 async def get_comment(comment_id: int) -> Dict[str, Any]:
@@ -1072,7 +1078,7 @@ async def delete_comment(comment_id: int, force: bool = False) -> Dict[str, Any]
     return await make_request("DELETE", f"comments/{comment_id}", params=params)
 
 @mcp.tool()
-async def list_pending_comments(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+async def list_pending_comments(per_page: int = 100, page: int = 1) -> List[Dict[str, Any]]:
     """
     List all pending comments for moderation.
 
@@ -1083,7 +1089,7 @@ async def list_pending_comments(per_page: int = 100, page: int = 1) -> Dict[str,
     Returns:
         Dictionary with pending comments list or error
     """
-    return await make_request("GET", "comments", params={"status": "hold", "per_page": min(per_page, 100), "page": page})
+    return await make_request("GET", "comments", params={"status": "hold", "per_page": min(per_page, 100), "page": page}, require_auth=True)
 
 @mcp.tool()
 async def bulk_approve_comments(comment_ids: List[int]) -> Dict[str, Any]:
@@ -1119,7 +1125,7 @@ async def search_site(
     page: int = 1,
     type: Optional[str] = None,
     subtype: Optional[str] = None
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     Perform a site-wide search across WordPress content.
 
@@ -1151,7 +1157,7 @@ async def search_site(
     return await make_request("GET", "search", params=params)
 
 @mcp.tool()
-async def search_posts(search: str, per_page: int = 10, page: int = 1) -> Dict[str, Any]:
+async def search_posts(search: str, per_page: int = 10, page: int = 1) -> List[Dict[str, Any]]:
     """
     Search only posts in WordPress.
 
@@ -1166,7 +1172,7 @@ async def search_posts(search: str, per_page: int = 10, page: int = 1) -> Dict[s
     return await search_site(search=search, per_page=per_page, page=page, type="post", subtype="post")
 
 @mcp.tool()
-async def search_pages(search: str, per_page: int = 10, page: int = 1) -> Dict[str, Any]:
+async def search_pages(search: str, per_page: int = 10, page: int = 1) -> List[Dict[str, Any]]:
     """
     Search only pages in WordPress.
 
@@ -1220,7 +1226,7 @@ async def get_comments_resource() -> str:
     result = await list_comments(per_page=100)
     if isinstance(result, list):
         return f"Found {len(result)} comments."
-    return f"Error retrieving comments: {result}
+    return f"Error retrieving comments: {result}"
 
 @mcp.resource("wordpress://pending-comments")
 async def get_pending_comments_resource() -> str:

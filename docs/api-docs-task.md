@@ -63,4 +63,20 @@ Create a docs page for the WordPress REST API, specifically for the "Tags" endpo
 
 Documentation has been created at: [wordpress-tags-api-documentation.md](wordpress-tags-api-documentation.md)
 
+URL: https://developer.wordpress.org/rest-api/reference/comments/
+
+Create a docs page for the WordPress REST API, specifically for the "Comments" endpoint. Include sections on how to retrieve comments, create new comments, update existing comments, and delete comments. Provide example requests and responses for each action, as well as any necessary authentication information.
+
+## COMPLETED
+
+Documentation has been created at: [wordpress-comments-api-documentation.md](wordpress-comments-api-documentation.md)
+
+
+URL: https://developer.wordpress.org/rest-api/reference/search-results/
+
+Create a docs page for the WordPress REST API, specifically for the "Search Results" endpoint. Include sections on how to perform search queries, retrieve search results, and any necessary authentication information. Provide example requests and responses for performing searches using the REST API.
+
+## COMPLETED
+
+Documentation has been created at: [wordpress-search-results-api-documentation.md](wordpress-search-results-api-documentation.md)
 
