@@ -1,14 +1,15 @@
 # WordPress MCP Server
 
-A Model Context Protocol (MCP) server for interacting with the WordPress REST API. This server provides tools for managing WordPress posts, pages, and categories through a standardized MCP interface.
+A Model Context Protocol (MCP) server for interacting with the WordPress REST API. This server provides tools for managing WordPress posts, pages, categories, and tags through a standardized MCP interface.
 
 ## Features
 
 - **Posts Management**: Create, read, update, and delete WordPress posts
 - **Pages Management**: Create, read, update, and delete WordPress pages with hierarchical support
-- **Categories Management**: Create, read, update, and delete WordPress categories
+- **Categories Management**: Create, read, update, and delete WordPress categories with parent-child relationships
+- **Tags Management**: Create, read, update, and delete WordPress tags for content labeling
 - **Authentication**: Basic authentication using WordPress Application Passwords
-- **Resources**: Quick access to posts, pages, and categories
+- **Resources**: Quick access to posts, pages, categories, and tags
 - **Prompts**: Pre-built prompts for content creation and SEO optimization
 
 ## Installation
@@ -85,6 +86,10 @@ WP_APP_PASSWORD=abcd-efgh-ijkl-mnop-1234-5678
 | `create_post` | Create a new post |
 | `update_post` | Update an existing post |
 | `delete_post` | Delete a post (move to trash or force delete) |
+| `list_draft_posts` | List all draft posts |
+| `publish_post` | Publish a single draft post |
+| `publish_bulk_posts` | Publish multiple posts at once |
+| `publish_all_drafts` | Publish ALL draft posts at once |
 
 ### Pages
 
@@ -95,6 +100,10 @@ WP_APP_PASSWORD=abcd-efgh-ijkl-mnop-1234-5678
 | `create_page` | Create a new page |
 | `update_page` | Update an existing page |
 | `delete_page` | Delete a page (move to trash or force delete) |
+| `list_draft_pages` | List all draft pages |
+| `publish_page` | Publish a single draft page |
+| `publish_bulk_pages` | Publish multiple pages at once |
+| `publish_all_draft_pages` | Publish ALL draft pages at once |
 
 ### Categories
 
@@ -105,6 +114,16 @@ WP_APP_PASSWORD=abcd-efgh-ijkl-mnop-1234-5678
 | `create_category` | Create a new category |
 | `update_category` | Update an existing category |
 | `delete_category` | Delete a category |
+
+### Tags
+
+| Tool | Description |
+|------|-------------|
+| `list_tags` | List tags with filtering options |
+| `get_tag` | Retrieve a single tag by ID |
+| `create_tag` | Create a new tag |
+| `update_tag` | Update an existing tag |
+| `delete_tag` | Delete a tag |
 
 ## Usage Examples
 
@@ -119,6 +138,39 @@ result = await create_post(
     categories=[5, 10],
     tags=[15]
 )
+```
+
+### Draft to Publish Workflow
+
+```python
+# 1. Create posts as drafts
+post1 = await create_post(
+    title="First Draft",
+    content="Content for first post",
+    status="draft"
+)
+
+post2 = await create_post(
+    title="Second Draft",
+    content="Content for second post",
+    status="draft"
+)
+
+# 2. Review your draft posts
+drafts = await list_draft_posts()
+print(f"Found {len(drafts)} draft posts to review")
+
+# 3. Publish a single post
+await publish_post(post_id=post1["id"])
+
+# 4. Or publish multiple specific posts
+await publish_bulk_posts(post_ids=[post1["id"], post2["id"]])
+
+# 5. Or publish ALL drafts at once
+result = await publish_all_drafts()
+print(f"Published {len(result['successful'])} posts")
+if result['failed']:
+    print(f"Failed to publish {len(result['failed'])} posts")
 ```
 
 ### Creating a Page Hierarchy
@@ -152,6 +204,27 @@ tech = await create_category(
 await create_category(
     name="Python",
     parent=tech["id"]
+)
+```
+
+### Managing Tags
+
+```python
+# Create multiple tags for content organization
+javascript = await create_tag(
+    name="JavaScript",
+    description="JavaScript programming posts"
+)
+
+tutorial = await create_tag(
+    name="Tutorial",
+    description="Tutorial and how-to content"
+)
+
+# Assign tags to posts
+await update_post(
+    post_id=42,
+    tags=[javascript["id"], tutorial["id"]]
 )
 ```
 

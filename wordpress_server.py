@@ -281,6 +281,100 @@ async def delete_post(post_id: int, force: bool = False) -> Dict[str, Any]:
     params = {"force": "true" if force else "false"}
     return await make_request("DELETE", f"posts/{post_id}", params=params)
 
+@mcp.tool()
+async def list_draft_posts(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+    """
+    List all draft posts in WordPress.
+
+    Args:
+        per_page: Number of posts per page (max 100)
+        page: Current page number
+
+    Returns:
+        Dictionary with draft posts list or error
+    """
+    return await make_request("GET", "posts", params={"status": "draft", "per_page": min(per_page, 100), "page": page})
+
+@mcp.tool()
+async def publish_post(post_id: int) -> Dict[str, Any]:
+    """
+    Publish a single draft post immediately.
+
+    Args:
+        post_id: The post ID to publish
+
+    Returns:
+        Dictionary with updated post data or error
+    """
+    return await make_request("POST", f"posts/{post_id}", data={"status": "publish"})
+
+@mcp.tool()
+async def publish_bulk_posts(post_ids: List[int]) -> Dict[str, Any]:
+    """
+    Publish multiple draft posts at once.
+
+    Args:
+        post_ids: List of post IDs to publish
+
+    Returns:
+        Dictionary with results for each post:
+        - successful: List of successfully published posts
+        - failed: List of failed publish attempts with error messages
+    """
+    results = {"successful": [], "failed": []}
+
+    for post_id in post_ids:
+        try:
+            result = await make_request("POST", f"posts/{post_id}", data={"status": "publish"})
+            if result.get("error"):
+                results["failed"].append({"post_id": post_id, "error": result})
+            else:
+                results["successful"].append({"post_id": post_id, "post": result})
+        except Exception as e:
+            results["failed"].append({"post_id": post_id, "error": str(e)})
+
+    return results
+
+@mcp.tool()
+async def publish_all_drafts() -> Dict[str, Any]:
+    """
+    Publish ALL draft posts at once.
+
+    This tool will:
+    1. Fetch all draft posts (handles pagination automatically)
+    2. Publish each draft post
+    3. Return a summary of the operation
+
+    Returns:
+        Dictionary with:
+        - total_found: Total number of draft posts found
+        - successful: List of successfully published posts
+        - failed: List of failed publish attempts with error messages
+    """
+    page = 1
+    all_draft_ids = []
+
+    # Fetch all draft posts (handle pagination)
+    while True:
+        drafts = await make_request("GET", "posts", params={"status": "draft", "per_page": 100, "page": page})
+
+        if not isinstance(drafts, list):
+            return {"error": True, "message": "Failed to fetch draft posts", "details": drafts}
+
+        if not drafts:
+            break
+
+        all_draft_ids.extend([post["id"] for post in drafts])
+
+        # If we got less than 100, we're done
+        if len(drafts) < 100:
+            break
+
+        page += 1
+
+    # Publish all drafts
+    return await publish_bulk_posts(all_draft_ids)
+
 # ==================== PAGES ====================
 
 @mcp.tool()
@@ -454,6 +548,100 @@ async def delete_page(page_id: int, force: bool = False) -> Dict[str, Any]:
     params = {"force": "true" if force else "false"}
     return await make_request("DELETE", f"pages/{page_id}", params=params)
 
+@mcp.tool()
+async def list_draft_pages(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+    """
+    List all draft pages in WordPress.
+
+    Args:
+        per_page: Number of pages per page (max 100)
+        page: Current page number
+
+    Returns:
+        Dictionary with draft pages list or error
+    """
+    return await make_request("GET", "pages", params={"status": "draft", "per_page": min(per_page, 100), "page": page})
+
+@mcp.tool()
+async def publish_page(page_id: int) -> Dict[str, Any]:
+    """
+    Publish a single draft page immediately.
+
+    Args:
+        page_id: The page ID to publish
+
+    Returns:
+        Dictionary with updated page data or error
+    """
+    return await make_request("POST", f"pages/{page_id}", data={"status": "publish"})
+
+@mcp.tool()
+async def publish_bulk_pages(page_ids: List[int]) -> Dict[str, Any]:
+    """
+    Publish multiple draft pages at once.
+
+    Args:
+        page_ids: List of page IDs to publish
+
+    Returns:
+        Dictionary with results for each page:
+        - successful: List of successfully published pages
+        - failed: List of failed publish attempts with error messages
+    """
+    results = {"successful": [], "failed": []}
+
+    for page_id in page_ids:
+        try:
+            result = await make_request("POST", f"pages/{page_id}", data={"status": "publish"})
+            if result.get("error"):
+                results["failed"].append({"page_id": page_id, "error": result})
+            else:
+                results["successful"].append({"page_id": page_id, "page": result})
+        except Exception as e:
+            results["failed"].append({"page_id": page_id, "error": str(e)})
+
+    return results
+
+@mcp.tool()
+async def publish_all_draft_pages() -> Dict[str, Any]:
+    """
+    Publish ALL draft pages at once.
+
+    This tool will:
+    1. Fetch all draft pages (handles pagination automatically)
+    2. Publish each draft page
+    3. Return a summary of the operation
+
+    Returns:
+        Dictionary with:
+        - total_found: Total number of draft pages found
+        - successful: List of successfully published pages
+        - failed: List of failed publish attempts with error messages
+    """
+    page = 1
+    all_draft_ids = []
+
+    # Fetch all draft pages (handle pagination)
+    while True:
+        drafts = await make_request("GET", "pages", params={"status": "draft", "per_page": 100, "page": page})
+
+        if not isinstance(drafts, list):
+            return {"error": True, "message": "Failed to fetch draft pages", "details": drafts}
+
+        if not drafts:
+            break
+
+        all_draft_ids.extend([page_data["id"] for page_data in drafts])
+
+        # If we got less than 100, we're done
+        if len(drafts) < 100:
+            break
+
+        page += 1
+
+    # Publish all drafts
+    return await publish_bulk_pages(all_draft_ids)
+
 # ==================== CATEGORIES ====================
 
 @mcp.tool()
@@ -586,6 +774,127 @@ async def delete_category(category_id: int) -> Dict[str, Any]:
     """
     return await make_request("DELETE", f"categories/{category_id}", params={"force": "true"})
 
+# ==================== TAGS ====================
+
+@mcp.tool()
+async def list_tags(
+    per_page: int = 10,
+    page: int = 1,
+    search: str = "",
+    hide_empty: bool = False,
+    order: str = "asc",
+    orderby: str = "name"
+) -> Dict[str, Any]:
+    """
+    List WordPress tags with optional filtering.
+
+    Args:
+        per_page: Number of tags per page (max 100)
+        page: Current page number
+        search: Search term to filter tags
+        hide_empty: Whether to hide empty tags
+        order: Order direction (asc or desc)
+        orderby: Order by field (id, name, slug, count, description)
+
+    Returns:
+        Dictionary with tags list or error
+    """
+    params = {
+        "per_page": min(per_page, 100),
+        "page": page,
+        "order": order,
+        "orderby": orderby
+    }
+
+    if search:
+        params["search"] = search
+    if hide_empty:
+        params["hide_empty"] = "true"
+
+    return await make_request("GET", "tags", params=params)
+
+@mcp.tool()
+async def get_tag(tag_id: int) -> Dict[str, Any]:
+    """
+    Retrieve a single WordPress tag by ID.
+
+    Args:
+        tag_id: The tag ID
+
+    Returns:
+        Dictionary with tag data or error
+    """
+    return await make_request("GET", f"tags/{tag_id}")
+
+@mcp.tool()
+async def create_tag(
+    name: str,
+    description: str = "",
+    slug: str = ""
+) -> Dict[str, Any]:
+    """
+    Create a new WordPress tag.
+
+    Args:
+        name: Tag name (required)
+        description: Tag description
+        slug: URL-friendly slug
+
+    Returns:
+        Dictionary with created tag data or error
+    """
+    data = {
+        "name": name,
+        "description": description
+    }
+
+    if slug:
+        data["slug"] = slug
+
+    return await make_request("POST", "tags", data=data)
+
+@mcp.tool()
+async def update_tag(
+    tag_id: int,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    slug: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Update an existing WordPress tag.
+
+    Args:
+        tag_id: The tag ID
+        name: Tag name
+        description: Tag description
+        slug: URL-friendly slug
+
+    Returns:
+        Dictionary with updated tag data or error
+    """
+    data = {}
+    if name is not None:
+        data["name"] = name
+    if description is not None:
+        data["description"] = description
+    if slug is not None:
+        data["slug"] = slug
+
+    return await make_request("POST", f"tags/{tag_id}", data=data)
+
+@mcp.tool()
+async def delete_tag(tag_id: int) -> Dict[str, Any]:
+    """
+    Delete a WordPress tag.
+
+    Args:
+        tag_id: The tag ID
+
+    Returns:
+        Dictionary with deletion result or error
+    """
+    return await make_request("DELETE", f"tags/{tag_id}", params={"force": "true"})
+
 # ==================== RESOURCES ====================
 
 @mcp.resource("wordpress://posts/{status}")
@@ -611,6 +920,14 @@ async def get_categories_resource() -> str:
     if isinstance(result, list):
         return f"Found {len(result)} categories."
     return f"Error retrieving categories: {result}"
+
+@mcp.resource("wordpress://tags")
+async def get_tags_resource() -> str:
+    """Get tags as a resource."""
+    result = await list_tags(per_page=100, hide_empty=False)
+    if isinstance(result, list):
+        return f"Found {len(result)} tags."
+    return f"Error retrieving tags: {result}"
 
 # ==================== PROMPTS ====================
 
