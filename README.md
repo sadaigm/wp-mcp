@@ -1,15 +1,17 @@
 # WordPress MCP Server
 
-A Model Context Protocol (MCP) server for interacting with the WordPress REST API. This server provides tools for managing WordPress posts, pages, categories, and tags through a standardized MCP interface.
+A Model Context Protocol (MCP) server for interacting with the WordPress REST API. This server provides tools for managing WordPress posts, pages, categories, tags, comments, and site search through a standardized MCP interface.
 
 ## Features
 
-- **Posts Management**: Create, read, update, and delete WordPress posts
-- **Pages Management**: Create, read, update, and delete WordPress pages with hierarchical support
+- **Posts Management**: Create, read, update, and delete WordPress posts with bulk publishing
+- **Pages Management**: Create, read, update, and delete WordPress pages with hierarchical support and bulk publishing
 - **Categories Management**: Create, read, update, and delete WordPress categories with parent-child relationships
 - **Tags Management**: Create, read, update, and delete WordPress tags for content labeling
+- **Comments Management**: Create, read, update, moderate, and delete WordPress comments with bulk approval
+- **Site Search**: Search across posts, pages, categories, and tags
 - **Authentication**: Basic authentication using WordPress Application Passwords
-- **Resources**: Quick access to posts, pages, categories, and tags
+- **Resources**: Quick access to posts, pages, categories, tags, and comments
 - **Prompts**: Pre-built prompts for content creation and SEO optimization
 
 ## Installation
@@ -125,6 +127,28 @@ WP_APP_PASSWORD=abcd-efgh-ijkl-mnop-1234-5678
 | `update_tag` | Update an existing tag |
 | `delete_tag` | Delete a tag |
 
+### Comments
+
+| Tool | Description |
+|------|-------------|
+| `list_comments` | List comments with filtering options |
+| `get_comment` | Retrieve a single comment by ID |
+| `create_comment` | Create a new comment |
+| `update_comment` | Update an existing comment |
+| `delete_comment` | Delete a comment |
+| `approve_comment` | Approve a comment immediately |
+| `spam_comment` | Mark a comment as spam |
+| `list_pending_comments` | List pending comments for moderation |
+| `bulk_approve_comments` | Approve multiple comments at once |
+
+### Search
+
+| Tool | Description |
+|------|-------------|
+| `search_site` | Site-wide search across all content |
+| `search_posts` | Search only posts |
+| `search_pages` | Search only pages |
+
 ## Usage Examples
 
 ### Creating a Post
@@ -225,6 +249,47 @@ tutorial = await create_tag(
 await update_post(
     post_id=42,
     tags=[javascript["id"], tutorial["id"]]
+)
+```
+
+### Managing Comments
+
+```python
+# Get comments for moderation
+pending = await list_pending_comments()
+
+# Approve a comment
+await approve_comment(comment_id=157)
+
+# Create a reply to a comment
+reply = await create_comment(
+    post=42,
+    content="Thanks for your feedback!",
+    parent=157
+)
+
+# Bulk approve comments
+result = await bulk_approve_comments(comment_ids=[157, 158, 159])
+print(f"Approved {len(result['successful'])} comments")
+```
+
+### Site Search
+
+```python
+# Search all content
+results = await search_site(search="wordpress tutorial")
+
+# Search only posts
+posts = await search_posts(search="javascript")
+
+# Search only pages  
+pages = await search_pages(search="about")
+
+# Filter by content type
+categories = await search_site(
+    search="technology",
+    type="term",
+    subtype="category"
 )
 ```
 

@@ -895,6 +895,291 @@ async def delete_tag(tag_id: int) -> Dict[str, Any]:
     """
     return await make_request("DELETE", f"tags/{tag_id}", params={"force": "true"})
 
+# ==================== COMMENTS ====================
+
+@mcp.tool()
+async def list_comments(
+    per_page: int = 10,
+    page: int = 1,
+    search: str = "",
+    post: Optional[int] = None,
+    status: str = "approve",
+    parent: Optional[int] = None,
+    order: str = "desc",
+    orderby: str = "date_gmt"
+) -> Dict[str, Any]:
+    """
+    List WordPress comments with optional filtering.
+
+    Args:
+        per_page: Number of comments per page (max 100)
+        page: Current page number
+        search: Search term to filter comments
+        post: Filter by post ID
+        status: Comment status (approve, hold, spam, trash)
+        parent: Parent comment ID (for threaded comments)
+        order: Order direction (asc or desc)
+        orderby: Order by field (date, date_gmt, id, post, parent)
+
+    Returns:
+        Dictionary with comments list or error
+    """
+    params = {
+        "per_page": min(per_page, 100),
+        "page": page,
+        "order": order,
+        "orderby": orderby
+    }
+
+    if search:
+        params["search"] = search
+    if post:
+        params["post"] = post
+    if status:
+        params["status"] = status
+    if parent is not None:
+        params["parent"] = parent
+
+    return await make_request("GET", "comments", params=params)
+
+@mcp.tool()
+async def get_comment(comment_id: int) -> Dict[str, Any]:
+    """
+    Retrieve a single WordPress comment by ID.
+
+    Args:
+        comment_id: The comment ID
+
+    Returns:
+        Dictionary with comment data or error
+    """
+    return await make_request("GET", f"comments/{comment_id}")
+
+@mcp.tool()
+async def create_comment(
+    post: int,
+    content: str,
+    author_name: str = "",
+    author_email: str = "",
+    author_url: str = "",
+    parent: int = 0,
+    status: str = "hold"
+) -> Dict[str, Any]:
+    """
+    Create a new WordPress comment.
+
+    Args:
+        post: Associated post ID (required)
+        content: Comment content (required)
+        author_name: Display name for comment author
+        author_email: Email address for comment author
+        author_url: URL for comment author
+        parent: Parent comment ID (0 for top-level)
+        status: Comment status (approve, hold, spam)
+
+    Returns:
+        Dictionary with created comment data or error
+    """
+    data = {
+        "post": post,
+        "content": content,
+        "parent": parent
+    }
+
+    if author_name:
+        data["author_name"] = author_name
+    if author_email:
+        data["author_email"] = author_email
+    if author_url:
+        data["author_url"] = author_url
+    if status:
+        data["status"] = status
+
+    return await make_request("POST", "comments", data=data)
+
+@mcp.tool()
+async def update_comment(
+    comment_id: int,
+    content: Optional[str] = None,
+    status: Optional[str] = None,
+    author_name: Optional[str] = None,
+    author_email: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Update an existing WordPress comment.
+
+    Args:
+        comment_id: The comment ID
+        content: Comment content
+        status: Comment status (approve, hold, spam, trash)
+        author_name: Display name for comment author
+        author_email: Email address for comment author
+
+    Returns:
+        Dictionary with updated comment data or error
+    """
+    data = {}
+    if content is not None:
+        data["content"] = content
+    if status is not None:
+        data["status"] = status
+    if author_name is not None:
+        data["author_name"] = author_name
+    if author_email is not None:
+        data["author_email"] = author_email
+
+    return await make_request("POST", f"comments/{comment_id}", data=data)
+
+@mcp.tool()
+async def approve_comment(comment_id: int) -> Dict[str, Any]:
+    """
+    Approve a comment immediately.
+
+    Args:
+        comment_id: The comment ID to approve
+
+    Returns:
+        Dictionary with updated comment data or error
+    """
+    return await make_request("POST", f"comments/{comment_id}", data={"status": "approve"})
+
+@mcp.tool()
+async def spam_comment(comment_id: int) -> Dict[str, Any]:
+    """
+    Mark a comment as spam.
+
+    Args:
+        comment_id: The comment ID to mark as spam
+
+    Returns:
+        Dictionary with updated comment data or error
+    """
+    return await make_request("POST", f"comments/{comment_id}", data={"status": "spam"})
+
+@mcp.tool()
+async def delete_comment(comment_id: int, force: bool = False) -> Dict[str, Any]:
+    """
+    Delete a WordPress comment.
+
+    Args:
+        comment_id: The comment ID
+        force: Whether to bypass trash and force permanent deletion
+
+    Returns:
+        Dictionary with deletion result or error
+    """
+    params = {"force": "true" if force else "false"}
+    return await make_request("DELETE", f"comments/{comment_id}", params=params)
+
+@mcp.tool()
+async def list_pending_comments(per_page: int = 100, page: int = 1) -> Dict[str, Any]:
+    """
+    List all pending comments for moderation.
+
+    Args:
+        per_page: Number of comments per page (max 100)
+        page: Current page number
+
+    Returns:
+        Dictionary with pending comments list or error
+    """
+    return await make_request("GET", "comments", params={"status": "hold", "per_page": min(per_page, 100), "page": page})
+
+@mcp.tool()
+async def bulk_approve_comments(comment_ids: List[int]) -> Dict[str, Any]:
+    """
+    Approve multiple comments at once.
+
+    Args:
+        comment_ids: List of comment IDs to approve
+
+    Returns:
+        Dictionary with results for each comment
+    """
+    results = {"successful": [], "failed": []}
+
+    for comment_id in comment_ids:
+        try:
+            result = await make_request("POST", f"comments/{comment_id}", data={"status": "approve"})
+            if result.get("error"):
+                results["failed"].append({"comment_id": comment_id, "error": result})
+            else:
+                results["successful"].append({"comment_id": comment_id, "comment": result})
+        except Exception as e:
+            results["failed"].append({"comment_id": comment_id, "error": str(e)})
+
+    return results
+
+# ==================== SEARCH ====================
+
+@mcp.tool()
+async def search_site(
+    search: str,
+    per_page: int = 10,
+    page: int = 1,
+    type: Optional[str] = None,
+    subtype: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Perform a site-wide search across WordPress content.
+
+    Args:
+        search: Search query string (required)
+        per_page: Number of results per page (max 100)
+        page: Current page number
+        type: Object type filter (post, term, post-format)
+        subtype: Object subtype filter (post, page, category, post_tag)
+
+    Returns:
+        Dictionary with search results including:
+        - results: List of search results
+        - type: Content type
+        - subtype: Content subtype
+        Each result has: id, title, url, type, subtype
+    """
+    params = {
+        "search": search,
+        "per_page": min(per_page, 100),
+        "page": page
+    }
+
+    if type:
+        params["type"] = type
+    if subtype:
+        params["subtype"] = subtype
+
+    return await make_request("GET", "search", params=params)
+
+@mcp.tool()
+async def search_posts(search: str, per_page: int = 10, page: int = 1) -> Dict[str, Any]:
+    """
+    Search only posts in WordPress.
+
+    Args:
+        search: Search query string
+        per_page: Number of results per page (max 100)
+        page: Current page number
+
+    Returns:
+        Dictionary with post search results
+    """
+    return await search_site(search=search, per_page=per_page, page=page, type="post", subtype="post")
+
+@mcp.tool()
+async def search_pages(search: str, per_page: int = 10, page: int = 1) -> Dict[str, Any]:
+    """
+    Search only pages in WordPress.
+
+    Args:
+        search: Search query string
+        per_page: Number of results per page (max 100)
+        page: Current page number
+
+    Returns:
+        Dictionary with page search results
+    """
+    return await search_site(search=search, per_page=per_page, page=page, type="post", subtype="page")
+
 # ==================== RESOURCES ====================
 
 @mcp.resource("wordpress://posts/{status}")
@@ -928,6 +1213,22 @@ async def get_tags_resource() -> str:
     if isinstance(result, list):
         return f"Found {len(result)} tags."
     return f"Error retrieving tags: {result}"
+
+@mcp.resource("wordpress://comments")
+async def get_comments_resource() -> str:
+    """Get comments as a resource."""
+    result = await list_comments(per_page=100)
+    if isinstance(result, list):
+        return f"Found {len(result)} comments."
+    return f"Error retrieving comments: {result}
+
+@mcp.resource("wordpress://pending-comments")
+async def get_pending_comments_resource() -> str:
+    """Get pending comments for moderation."""
+    result = await list_pending_comments(per_page=100)
+    if isinstance(result, list):
+        return f"Found {len(result)} pending comments awaiting moderation."
+    return f"Error retrieving pending comments: {result}"
 
 # ==================== PROMPTS ====================
 
