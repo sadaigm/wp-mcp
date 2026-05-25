@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  wordpress-mcp:
+    build: .
+    image: wp-mcp:latest
+    container_name: wp-mcp
+    ports:
+      - "13003:8000"
+    environment:
+      # WordPress site URL
+      - WP_URL=${WP_URL:-https://example.com}
+      # WordPress credentials
+      - WP_USERNAME=${WP_USERNAME:-admin}
+      - WP_APP_PASSWORD=${WP_APP_PASSWORD}
+    env_file:
+      - .env
+    restart: unless-stopped
